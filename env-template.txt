@@ -6,3 +6,5 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 # Optional — server-only; not used by the browser bundle unless you add API routes
 SUPABASE_SERVICE_ROLE_KEY=
+# Deuce integration (server-only; x-api-key for /api/deuce/wait-times)
+INTEGRATION_API_KEY=
