@@ -9,6 +9,12 @@ import { SignupSheetsPanel } from '@/components/mobile/signup-sheets/SignupSheet
 import { supabase, formatSupabaseError, WaitTime, NewWaitTime } from '@/lib/supabase';
 import { normalizeCourtNameFromDb } from '@/lib/waitTimesCourt';
 import { ensureSmartcourtDeviceIdOnPageLoad, getOrCreateSmartcourtDeviceId } from '@/lib/smartcourtDeviceId';
+import {
+  releaseWaitTimeReportLock,
+  startWaitTimeReportCooldown,
+  tryAcquireWaitTimeReportLock,
+} from '@/lib/waitTimeReportCooldown';
+import { useWaitTimeReportCooldown } from '@/hooks/useWaitTimeReportCooldown';
 import { incrementWaitTimeFlag, alertFlagError } from '@/lib/incrementWaitTimeFlag';
 import {
   mergeWaitTimeUpdateIntoCourts,
@@ -392,6 +398,11 @@ const MediaContent = ({ mediaType }: { mediaType: 'video' | 'image' }) => {
   const [waitTimesLoading, setWaitTimesLoading] = useState(true);
   const [reporting, setReporting] = useState<string | null>(null);
   const [reportSuccess, setReportSuccess] = useState<string | null>(null);
+  const {
+    reportCooldownActive,
+    reportCooldownSecondsLeft,
+    refreshCooldown,
+  } = useWaitTimeReportCooldown();
 
   // Refs for form elements
   const hudsonSelectRef = useRef<HTMLSelectElement>(null);
@@ -402,6 +413,18 @@ const MediaContent = ({ mediaType }: { mediaType: 'video' | 'image' }) => {
   const brianCommentRef = useRef<HTMLInputElement>(null);
   const southOxfordSelectRef = useRef<HTMLSelectElement>(null);
   const southOxfordCommentRef = useRef<HTMLInputElement>(null);
+
+  const getReportButtonLabel = (courtName: string) => {
+    if (reportCooldownActive) {
+      return `Wait ${reportCooldownSecondsLeft}s`;
+    }
+    if (reporting === courtName) return 'Reporting...';
+    if (reportSuccess === courtName) return '✓ Reported!';
+    return 'Report';
+  };
+
+  const isReportButtonDisabled = (courtName: string) =>
+    reportCooldownActive || reporting === courtName;
 
 
 
@@ -643,7 +666,11 @@ const MediaContent = ({ mediaType }: { mediaType: 'video' | 'image' }) => {
 
   // Handle reporting wait times to Supabase
   const handleReportWaitTime = async (courtName: string, waitTime: string, comment: string = '') => {
+    if (!tryAcquireWaitTimeReportLock()) {
+      return;
+    }
     if (!waitTime || waitTime === 'Select wait time...') {
+      releaseWaitTimeReportLock();
       alert('Please select a wait time before reporting');
       return;
     }
@@ -672,6 +699,8 @@ const MediaContent = ({ mediaType }: { mediaType: 'video' | 'image' }) => {
 
       if (error) throw error;
 
+      startWaitTimeReportCooldown();
+      refreshCooldown();
       setReportSuccess(courtName);
       
       // Reset success state after 3 seconds
@@ -684,6 +713,7 @@ const MediaContent = ({ mediaType }: { mediaType: 'video' | 'image' }) => {
       console.error('Error reporting wait time:', error);
       alert(`Failed to report wait time. ${formatSupabaseError(error)}`);
     } finally {
+      releaseWaitTimeReportLock();
       setReporting(null);
     }
   };
@@ -1349,17 +1379,16 @@ const MediaContent = ({ mediaType }: { mediaType: 'video' | 'image' }) => {
                         onClick={() => {
                           handleReportWaitTime('Hudson River Park Courts', hudsonSelectRef.current?.value || '', hudsonCommentRef.current?.value || '');
                         }}
-                        disabled={reporting === 'Hudson River Park Courts'}
+                        disabled={isReportButtonDisabled('Hudson River Park Courts')}
                         className={`px-2 py-2 rounded-lg font-medium transition-all duration-300 text-xs whitespace-nowrap flex-shrink-0 ${
-                          reporting === 'Hudson River Park Courts' 
-                            ? 'bg-gray-400 cursor-not-allowed' 
+                          isReportButtonDisabled('Hudson River Park Courts')
+                            ? 'bg-gray-400 cursor-not-allowed text-white'
                             : reportSuccess === 'Hudson River Park Courts'
                             ? 'bg-[#1e3a5f] text-white scale-105'
                             : 'bg-[#1e3a5f] text-white hover:bg-[#1e3a5f]/90 hover:scale-105'
                         }`}
                       >
-                        {reporting === 'Hudson River Park Courts' ? 'Reporting...' : 
-                         reportSuccess === 'Hudson River Park Courts' ? '✓ Reported!' : 'Report'}
+                        {getReportButtonLabel('Hudson River Park Courts')}
                       </button>
                     </div>
                     <input 
@@ -1395,17 +1424,16 @@ const MediaContent = ({ mediaType }: { mediaType: 'video' | 'image' }) => {
                         onClick={() => {
                           handleReportWaitTime('Pier 42', pierSelectRef.current?.value || '', pierCommentRef.current?.value || '');
                         }}
-                        disabled={reporting === 'Pier 42'}
+                        disabled={isReportButtonDisabled('Pier 42')}
                         className={`px-2 py-2 rounded-lg font-medium transition-all duration-300 text-xs whitespace-nowrap flex-shrink-0 ${
-                          reporting === 'Pier 42' 
-                            ? 'bg-gray-400 cursor-not-allowed' 
+                          isReportButtonDisabled('Pier 42')
+                            ? 'bg-gray-400 cursor-not-allowed text-white'
                             : reportSuccess === 'Pier 42'
                             ? 'bg-[#1e3a5f] text-white scale-105'
                             : 'bg-[#1e3a5f] text-white hover:bg-[#1e3a5f]/90 hover:scale-105'
                         }`}
                       >
-                        {reporting === 'Pier 42' ? 'Reporting...' : 
-                         reportSuccess === 'Pier 42' ? '✓ Reported!' : 'Report'}
+                        {getReportButtonLabel('Pier 42')}
                       </button>
                     </div>
                     <input 
@@ -1441,17 +1469,16 @@ const MediaContent = ({ mediaType }: { mediaType: 'video' | 'image' }) => {
                         onClick={() => {
                           handleReportWaitTime('Brian Watkins Tennis Courts', brianSelectRef.current?.value || '', brianCommentRef.current?.value || '');
                         }}
-                        disabled={reporting === 'Brian Watkins Tennis Courts'}
+                        disabled={isReportButtonDisabled('Brian Watkins Tennis Courts')}
                         className={`px-2 py-2 rounded-lg font-medium transition-all duration-300 text-xs whitespace-nowrap flex-shrink-0 ${
-                          reporting === 'Brian Watkins Tennis Courts' 
-                            ? 'bg-gray-400 cursor-not-allowed' 
+                          isReportButtonDisabled('Brian Watkins Tennis Courts')
+                            ? 'bg-gray-400 cursor-not-allowed text-white'
                             : reportSuccess === 'Brian Watkins Tennis Courts'
                             ? 'bg-[#1e3a5f] text-white scale-105'
                             : 'bg-[#1e3a5f] text-white hover:bg-[#1e3a5f]/90 hover:scale-105'
                         }`}
                       >
-                        {reporting === 'Brian Watkins Tennis Courts' ? 'Reporting...' : 
-                         reportSuccess === 'Brian Watkins Tennis Courts' ? '✓ Reported!' : 'Report'}
+                        {getReportButtonLabel('Brian Watkins Tennis Courts')}
                       </button>
                     </div>
                     <input 
@@ -1487,17 +1514,16 @@ const MediaContent = ({ mediaType }: { mediaType: 'video' | 'image' }) => {
                         onClick={() => {
                           handleReportWaitTime('South Oxford Park Tennis Courts', southOxfordSelectRef.current?.value || '', southOxfordCommentRef.current?.value || '');
                         }}
-                        disabled={reporting === 'South Oxford Park Tennis Courts'}
+                        disabled={isReportButtonDisabled('South Oxford Park Tennis Courts')}
                         className={`px-2 py-2 rounded-lg font-medium transition-all duration-300 text-xs whitespace-nowrap flex-shrink-0 ${
-                          reporting === 'South Oxford Park Tennis Courts' 
-                            ? 'bg-gray-400 cursor-not-allowed' 
+                          isReportButtonDisabled('South Oxford Park Tennis Courts')
+                            ? 'bg-gray-400 cursor-not-allowed text-white'
                             : reportSuccess === 'South Oxford Park Tennis Courts'
                             ? 'bg-[#1e3a5f] text-white scale-105'
                             : 'bg-[#1e3a5f] text-white hover:bg-[#1e3a5f]/90 hover:scale-105'
                         }`}
                       >
-                        {reporting === 'South Oxford Park Tennis Courts' ? 'Reporting...' : 
-                         reportSuccess === 'South Oxford Park Tennis Courts' ? '✓ Reported!' : 'Report'}
+                        {getReportButtonLabel('South Oxford Park Tennis Courts')}
                       </button>
                     </div>
                     <input 

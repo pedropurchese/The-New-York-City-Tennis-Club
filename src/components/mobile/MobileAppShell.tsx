@@ -19,6 +19,8 @@ export function MobileAppShell() {
     handleFlagWaitTime,
     reporting,
     reportSuccess,
+    reportCooldownActive,
+    reportCooldownSecondsLeft,
   } = useWaitTimes();
   const [activeTab, setActiveTab] = useState<MobileTab>('home');
   const [filtersCollapsed, setFiltersCollapsed] = useState(true);
@@ -48,6 +50,8 @@ export function MobileAppShell() {
               handleFlagWaitTime={handleFlagWaitTime}
               reporting={reporting}
               reportSuccess={reportSuccess}
+              reportCooldownActive={reportCooldownActive}
+              reportCooldownSecondsLeft={reportCooldownSecondsLeft}
             />
           </div>
         )}

@@ -18,6 +18,8 @@ interface WaitTimesSectionProps {
   handleFlagWaitTime: (reportId: string, kind: WaitReportVoteKind) => Promise<void>;
   reporting: string | null;
   reportSuccess: string | null;
+  reportCooldownActive?: boolean;
+  reportCooldownSecondsLeft?: number;
 }
 
 const COURT_NAMES = [
@@ -36,6 +38,8 @@ export function WaitTimesSection({
   handleFlagWaitTime,
   reporting,
   reportSuccess,
+  reportCooldownActive = false,
+  reportCooldownSecondsLeft = 0,
 }: WaitTimesSectionProps) {
   const [mobileTab, setMobileTab] = useState<MobileWaitTab>('report');
   /** Avoid duplicate ref targets (mobile vs desktop); measure once before paint. */
@@ -64,6 +68,18 @@ export function WaitTimesSection({
     'Brian Watkins Tennis Courts': { select: brianSelectRef, comment: brianCommentRef },
     'South Oxford Park Tennis Courts': { select: southOxfordSelectRef, comment: southOxfordCommentRef },
   };
+
+  const getReportButtonLabel = (courtName: string) => {
+    if (reportCooldownActive) {
+      return `Wait ${reportCooldownSecondsLeft}s`;
+    }
+    if (reporting === courtName) return 'Reporting...';
+    if (reportSuccess === courtName) return '✓ Reported!';
+    return 'Report';
+  };
+
+  const isReportButtonDisabled = (courtName: string) =>
+    reportCooldownActive || reporting === courtName;
 
   return (
     <motion.section
@@ -196,20 +212,16 @@ export function WaitTimesSection({
                           refs[courtName].comment.current?.value || ''
                         )
                       }
-                      disabled={reporting === courtName}
+                      disabled={isReportButtonDisabled(courtName)}
                       className={`min-h-[44px] w-full rounded-lg px-2 py-2 text-sm font-medium transition-all duration-300 ${
-                        reporting === courtName
+                        isReportButtonDisabled(courtName)
                           ? 'cursor-not-allowed bg-gray-400 text-white'
                           : reportSuccess === courtName
                             ? 'bg-[#2D5A27] text-[#FFFDD0] scale-[1.02]'
                             : 'bg-[#2D5A27] text-[#FFFDD0] hover:bg-[#24481f]'
                       }`}
                     >
-                      {reporting === courtName
-                        ? 'Reporting...'
-                        : reportSuccess === courtName
-                          ? '✓ Reported!'
-                          : 'Report'}
+                      {getReportButtonLabel(courtName)}
                     </button>
                   </div>
                 </div>
@@ -301,20 +313,16 @@ export function WaitTimesSection({
                           refs[courtName].comment.current?.value || ''
                         )
                       }
-                      disabled={reporting === courtName}
+                      disabled={isReportButtonDisabled(courtName)}
                       className={`min-h-[44px] rounded-lg px-2 py-2 text-xs font-medium transition-all duration-300 whitespace-nowrap md:col-start-2 md:row-start-1 ${
-                        reporting === courtName
+                        isReportButtonDisabled(courtName)
                           ? 'cursor-not-allowed bg-gray-400 text-white'
                           : reportSuccess === courtName
                             ? 'bg-[#2D5A27] text-[#FFFDD0] scale-105'
                             : 'bg-[#2D5A27] text-[#FFFDD0] hover:bg-[#24481f] hover:scale-105'
                       }`}
                     >
-                      {reporting === courtName
-                        ? 'Reporting...'
-                        : reportSuccess === courtName
-                          ? '✓ Reported!'
-                          : 'Report'}
+                      {getReportButtonLabel(courtName)}
                     </button>
                   </div>
                 </div>

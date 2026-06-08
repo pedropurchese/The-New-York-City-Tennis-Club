@@ -7,6 +7,12 @@ import { incrementWaitTimeFlag, alertFlagError } from '@/lib/incrementWaitTimeFl
 import { normalizeCourtNameFromDb } from '@/lib/waitTimesCourt';
 import { ensureSmartcourtDeviceIdOnPageLoad, getOrCreateSmartcourtDeviceId } from '@/lib/smartcourtDeviceId';
 import {
+  releaseWaitTimeReportLock,
+  startWaitTimeReportCooldown,
+  tryAcquireWaitTimeReportLock,
+} from '@/lib/waitTimeReportCooldown';
+import { useWaitTimeReportCooldown } from '@/hooks/useWaitTimeReportCooldown';
+import {
   mergeWaitTimeUpdateIntoCourts,
   subscribeWaitTimesRealtime,
 } from '@/lib/waitTimesRealtime';
@@ -28,6 +34,11 @@ export function useWaitTimes() {
   const [loading, setLoading] = useState(true);
   const [reporting, setReporting] = useState<string | null>(null);
   const [reportSuccess, setReportSuccess] = useState<string | null>(null);
+  const {
+    reportCooldownActive,
+    reportCooldownSecondsLeft,
+    refreshCooldown,
+  } = useWaitTimeReportCooldown();
 
   const getStatusFromWaitTime = (waitTime: string) => {
     if (waitTime.includes('Less than 1 hour')) return 'green';
@@ -106,11 +117,16 @@ export function useWaitTimes() {
     waitTime: string,
     comment: string = ''
   ) => {
+    if (!tryAcquireWaitTimeReportLock()) {
+      return;
+    }
     if (!waitTime || waitTime === 'Select wait time...') {
+      releaseWaitTimeReportLock();
       alert('Please select a wait time before reporting');
       return;
     }
     if (!supabase) {
+      releaseWaitTimeReportLock();
       alert('Wait times are not configured. Add Supabase env vars to enable.');
       return;
     }
@@ -128,6 +144,8 @@ export function useWaitTimes() {
         device_id: getOrCreateSmartcourtDeviceId(),
       });
       if (error) throw error;
+      startWaitTimeReportCooldown();
+      refreshCooldown();
       setReportSuccess(courtName);
       setTimeout(() => setReportSuccess(null), 3000);
       await loadWaitTimes();
@@ -135,6 +153,7 @@ export function useWaitTimes() {
       console.error('Error reporting wait time:', error);
       alert(`Failed to report: ${formatSupabaseError(error)}`);
     } finally {
+      releaseWaitTimeReportLock();
       setReporting(null);
     }
   };
@@ -184,6 +203,8 @@ export function useWaitTimes() {
     loading,
     reporting,
     reportSuccess,
+    reportCooldownActive,
+    reportCooldownSecondsLeft,
     getStatusFromWaitTime,
     getStatusColor,
     formatTimeDifference,
