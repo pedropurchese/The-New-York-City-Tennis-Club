@@ -22,6 +22,7 @@ import {
 } from '@/lib/waitTimesRealtime';
 import type { WaitReportVoteKind } from '@/lib/waitTimeReportVotes';
 import { LiveUpdateCourtCard } from '@/components/blocks/LiveUpdateCourtCard';
+import { formatCourtDescriptionHtml } from '@/lib/formatCourtDescription';
 
 const DEUCE_APP_STORE_URL = 'https://apps.apple.com/us/app/deuce/id6749827534';
 
@@ -180,7 +181,7 @@ const MapComponent = ({ courts, selectedBoroughs, selectedSurfaces, selectedPerm
               <p style="margin: 2px 0;"><strong>Season:</strong> ${court.datesOpen}</p>
               <p style="margin: 2px 0;"><strong>Permit:</strong> ${court.permitStatus}</p>
             </div>
-            ${court.description ? `<p style="margin: 8px 0 0 0; font-size: 12px; color: #555; border-top: 1px solid #eee; padding-top: 8px; line-height: 1.4;">${court.description}</p>` : ''}
+            ${court.description ? formatCourtDescriptionHtml(court.description) : ''}
           </div>
         `
       });

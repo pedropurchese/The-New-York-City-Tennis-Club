@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Wrapper, Status } from '@googlemaps/react-wrapper';
 import { motion } from 'framer-motion';
 import type { CourtData } from '@/types/courts';
+import { formatCourtDescriptionHtml } from '@/lib/formatCourtDescription';
 
 const loadCourtsData = async (): Promise<CourtData[]> => {
   try {
@@ -111,7 +112,7 @@ const MapComponent = ({
               <p style="margin: 2px 0;"><strong>Season:</strong> ${court.datesOpen}</p>
               <p style="margin: 2px 0;"><strong>Permit:</strong> ${court.permitStatus}</p>
             </div>
-            ${court.description ? `<p style="margin: 8px 0 0 0; font-size: 12px; color: #555; border-top: 1px solid #eee; padding-top: 8px; line-height: 1.4;">${court.description}</p>` : ''}
+            ${court.description ? formatCourtDescriptionHtml(court.description) : ''}
           </div>
         `,
       });
