@@ -6,6 +6,16 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;');
 }
 
+/** Escape text, then turn http(s) URLs into clickable links. */
+function formatInlineHtml(text: string): string {
+  const escaped = escapeHtml(text);
+  return escaped.replace(
+    /https?:\/\/[^\s<]+/g,
+    (url) =>
+      `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color: #2D5A27; text-decoration: underline;">${url}</a>`
+  );
+}
+
 /** Renders court CSV tips as HTML: bold section headings (lines ending with :) and proper ul/li bullets. */
 export function formatCourtDescriptionHtml(description: string): string {
   const lines = description
@@ -40,7 +50,7 @@ export function formatCourtDescriptionHtml(description: string): string {
         );
         listOpen = true;
       }
-      parts.push(`<li style="margin: 2px 0;">${escapeHtml(line)}</li>`);
+      parts.push(`<li style="margin: 2px 0;">${formatInlineHtml(line)}</li>`);
     }
   }
 
